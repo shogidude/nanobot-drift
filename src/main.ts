@@ -15,6 +15,7 @@
 
 const GAME_ID_DEFAULT = "nanobot-drift";
 const VERSION = "1.0.0";
+const BEACON_CHARGE_RATE = 0.125;
 
 type Outcome = "win" | "lose" | "abort";
 
@@ -999,7 +1000,7 @@ class NanobotDriftGame {
     this.score += gained;
     const beaconGain = c.tier === 2 ? 11 : c.tier === 1 ? 6 : 3;
     const beaconBonus = c.type === "latcher" ? 1.25 : c.type === "seeker" ? 1.1 : 1;
-    this.beacon = clamp(this.beacon + beaconGain * beaconBonus, 0, 100);
+    this.beacon = clamp(this.beacon + beaconGain * beaconBonus * BEACON_CHARGE_RATE, 0, 100);
 
     // Particles
     const n = c.tier === 2 ? 26 : c.tier === 1 ? 18 : 12;
