@@ -1,0 +1,14 @@
+{
+  "name": "nanobot-drift",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nanobot Drift - a browser mini-game (Asteroids-inspired) for embedded Game Rooms.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

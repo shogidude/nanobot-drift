@@ -1,0 +1,57 @@
+:root {
+  --bg: #0b0f14;
+  --fg: #e7f0ff;
+  --muted: rgba(231, 240, 255, 0.75);
+  --panel: rgba(10, 14, 20, 0.72);
+  --panel-strong: rgba(10, 14, 20, 0.88);
+  --accent: #7ef0ff;
+  --danger: #ff5b7c;
+  --warn: #ffcc66;
+  --shadow: rgba(0, 0, 0, 0.35);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.fallback h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+}
+
+.fallback p {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--muted);
+}
