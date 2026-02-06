@@ -664,11 +664,7 @@ class NanobotDriftGame {
       }
       case "result": {
         // In embedded mode, the host will typically transition away.
-        // In standalone, allow restart.
-        if (!this.host.isEmbedded && (this.input.consumeTap("Enter") || this.input.consumeTap("Space"))) {
-          this.state = { kind: "title" };
-          this.resetRun(true);
-        }
+        // In standalone, require an explicit click on the OK button.
         break;
       }
       case "playing": {
@@ -1533,7 +1529,7 @@ class NanobotDriftGame {
       "- Fire: Space",
       "- EMP Burst: E or Shift",
       "- Pause: Esc",
-      this.config.allowAbort ? "- Abort: Q (or Backspace)" : ""
+      this.config.allowAbort ? "- Quit Nanobot Drift and return to room: Q (or Backspace)" : ""
     ].filter((s) => s.length > 0);
 
     this.drawCenterPanel({
@@ -1558,7 +1554,7 @@ class NanobotDriftGame {
       "Paused.",
       "",
       "Press Esc or Enter to resume.",
-      this.config.allowAbort ? "Press Q to abort (return)." : ""
+      this.config.allowAbort ? "Press Q to quit Nanobot Drift and return to room." : ""
     ].filter((s) => s.length > 0);
 
     this.drawCenterPanel({ title: "Paused", body, footer: "" });
@@ -1603,7 +1599,7 @@ class NanobotDriftGame {
     this.drawCenterPanel({
       title,
       body,
-      footer: this.host.isEmbedded ? "Outcome sent to host" : "Press Enter to return to title",
+      footer: this.host.isEmbedded ? "Outcome sent to host" : "Click OK to return to title",
       badge: `v${VERSION}`
     });
 
@@ -1612,7 +1608,7 @@ class NanobotDriftGame {
       const bh = 42;
       const bx = this.w * 0.5 - bw * 0.5;
       const by = this.h * 0.5 + 140;
-      this.drawButton("again", bx, by, bw, bh, "Play again", true, () => {
+      this.drawButton("ok", bx, by, bw, bh, "OK", true, () => {
         this.state = { kind: "title" };
         this.resetRun(true);
       });
