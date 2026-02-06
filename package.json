@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "watch": "tsc -p tsconfig.json --watch"
+    "watch": "tsc -p tsconfig.json --watch",
+    "deploy": "npm run build && rm -rf ../../modular-web-mud/server/app/static/games/nanobot-drift && mkdir -p ../../modular-web-mud/server/app/static/games/nanobot-drift && cp -R dist assets index.html styles.css ../../modular-web-mud/server/app/static/games/nanobot-drift/"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

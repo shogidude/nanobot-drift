@@ -44,6 +44,20 @@ npm install
 npm run build
 ```
 
+## Deploy
+
+To deploy a clean build into the MUD static games directory:
+
+```bash
+npm run deploy
+```
+
+This performs a fresh build, clears the destination folder, and copies `dist/`, `assets/`, `index.html`, and `styles.css` into:
+
+```
+/home/terrancd/my_workspace/modular-web-mud/server/app/static/games/nanobot-drift
+```
+
 ## Standalone mode (no host)
 
 If you open this without a host sending a postMessage `init`, add:

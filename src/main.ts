@@ -15,6 +15,11 @@
 
 const GAME_ID_DEFAULT = "nanobot-drift";
 const VERSION = "1.0.0";
+const TOTAL_ROUNDS = 20;
+const FINAL_ROUND_BEACON_MULT = 0.25;
+const FINAL_ROUND_EMP_CHARGES = 1;
+const EMP_BASE_COOLDOWN = 6.0;
+const EMP_COOLDOWN_PER_ROUND = 2.0;
 const BEACON_CHARGE_RATE = 0.125;
 
 type Outcome = "win" | "lose" | "abort";
@@ -53,6 +58,7 @@ type GameState =
   | { kind: "title" }
   | { kind: "playing" }
   | { kind: "paused" }
+  | { kind: "round_complete" }
   | { kind: "result"; outcome: Outcome; sent: boolean };
 
 // -----------------------------
@@ -478,6 +484,9 @@ class NanobotDriftGame {
   // world
   private t = 0; // seconds since app start
   private runT = 0; // seconds since run start
+  private round = 1;
+
+  private empChargesRemaining: number | null = null;
 
   private shipPos = new Vec2(0, 0);
   private shipVel = new Vec2(0, 0);
@@ -572,6 +581,18 @@ class NanobotDriftGame {
     this.resetRun(false);
   }
 
+  private configureRound(): void {
+    this.empChargesRemaining = this.round >= TOTAL_ROUNDS ? FINAL_ROUND_EMP_CHARGES : null;
+  }
+
+  private beaconChargeRate(): number {
+    return this.round >= TOTAL_ROUNDS ? BEACON_CHARGE_RATE * FINAL_ROUND_BEACON_MULT : BEACON_CHARGE_RATE;
+  }
+
+  private empCooldownMax(): number {
+    return EMP_BASE_COOLDOWN + EMP_COOLDOWN_PER_ROUND * (this.round - 1);
+  }
+
   private resetRun(keepTitle: boolean): void {
     this.runT = 0;
     this.score = 0;
@@ -663,6 +684,9 @@ class NanobotDriftGame {
         }
         break;
       }
+      case "round_complete": {
+        break;
+      }
       case "result": {
         // In embedded mode, the host will typically transition away.
         // In standalone, require an explicit click on the OK button.
@@ -679,10 +703,26 @@ class NanobotDriftGame {
     }
   }
 
-  private beginRun(): void {
+  private startRound(): void {
     this.resetRun(false);
+    this.configureRound();
     this.state = { kind: "playing" };
     this.beep(660, 0.06);
+  }
+
+  private beginRun(): void {
+    this.round = 1;
+    this.startRound();
+  }
+
+  private completeRound(): void {
+    this.state = { kind: "round_complete" };
+    this.beep(520, 0.05);
+  }
+
+  private advanceRound(): void {
+    this.round = Math.min(this.round + 1, TOTAL_ROUNDS);
+    this.startRound();
   }
 
   private updatePlaying(dt: number): void {
@@ -760,11 +800,15 @@ class NanobotDriftGame {
 
     // EMP
     const emp = this.input.consumeTap("KeyE") || this.input.consumeTap("ShiftLeft") || this.input.consumeTap("ShiftRight");
-    if (emp && this.empCooldown <= 0) {
-      this.empCooldown = 6.0;
+    const empAvailable = this.empChargesRemaining === null || this.empChargesRemaining > 0;
+    if (emp && empAvailable && this.empCooldown <= 0) {
+      this.empCooldown = this.empCooldownMax();
       this.empPulseT = 0.25;
       this.triggerEmp();
       this.beep(220, 0.08);
+      if (this.empChargesRemaining !== null) {
+        this.empChargesRemaining = Math.max(0, this.empChargesRemaining - 1);
+      }
     }
 
     // Director spawn
@@ -904,7 +948,11 @@ class NanobotDriftGame {
     }
 
     if (this.beacon >= 100) {
-      this.endRun("win");
+      if (this.round >= TOTAL_ROUNDS) {
+        this.endRun("win");
+      } else {
+        this.completeRound();
+      }
       return;
     }
   }
@@ -1000,7 +1048,7 @@ class NanobotDriftGame {
     this.score += gained;
     const beaconGain = c.tier === 2 ? 11 : c.tier === 1 ? 6 : 3;
     const beaconBonus = c.type === "latcher" ? 1.25 : c.type === "seeker" ? 1.1 : 1;
-    this.beacon = clamp(this.beacon + beaconGain * beaconBonus * BEACON_CHARGE_RATE, 0, 100);
+    this.beacon = clamp(this.beacon + beaconGain * beaconBonus * this.beaconChargeRate(), 0, 100);
 
     // Particles
     const n = c.tier === 2 ? 26 : c.tier === 1 ? 18 : 12;
@@ -1376,7 +1424,12 @@ class NanobotDriftGame {
     const ctx = this.ctx;
 
     // HUD base
-    if (this.state.kind === "playing" || this.state.kind === "paused" || this.state.kind === "result") {
+    if (
+      this.state.kind === "playing" ||
+      this.state.kind === "paused" ||
+      this.state.kind === "result" ||
+      this.state.kind === "round_complete"
+    ) {
       this.drawHUD();
     }
 
@@ -1403,6 +1456,11 @@ class NanobotDriftGame {
 
     if (this.state.kind === "paused") {
       this.drawPauseMenu();
+      return;
+    }
+
+    if (this.state.kind === "round_complete") {
+      this.drawRoundComplete();
       return;
     }
 
@@ -1448,8 +1506,10 @@ class NanobotDriftGame {
 
     // EMP cooldown circle
     const cd = this.empCooldown;
-    const cdMax = 6.0;
+    const cdMax = this.empCooldownMax();
     const ready = cd <= 0.01;
+    const empLimited = this.empChargesRemaining !== null;
+    const empExhausted = empLimited && (this.empChargesRemaining ?? 0) <= 0;
 
     const cx = this.w - 52;
     const cy = this.h - 42;
@@ -1461,7 +1521,17 @@ class NanobotDriftGame {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
 
-    if (ready) {
+    if (empExhausted) {
+      ctx.strokeStyle = "rgba(231, 240, 255, 0.12)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(231, 240, 255, 0.35)";
+      ctx.font = "700 11px ui-sans-serif, system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("EMP 0", cx, cy + 4);
+    } else if (ready) {
       ctx.strokeStyle = "rgba(126, 240, 255, 0.65)";
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -1481,6 +1551,13 @@ class NanobotDriftGame {
       ctx.font = "700 12px ui-sans-serif, system-ui";
       ctx.textAlign = "center";
       ctx.fillText(`${Math.ceil(cd)}`, cx, cy + 4);
+    }
+
+    if (empLimited) {
+      ctx.fillStyle = "rgba(231, 240, 255, 0.5)";
+      ctx.font = "600 10px ui-sans-serif, system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(`${this.empChargesRemaining} left`, cx, cy + 24);
     }
 
     // Tiny help hint
@@ -1581,6 +1658,32 @@ class NanobotDriftGame {
     }
   }
 
+  private drawRoundComplete(): void {
+    const nextRound = this.round + 1;
+    const body = [
+      "Nice work, pilot.",
+      `Round ${this.round} of ${TOTAL_ROUNDS} complete.`,
+      "",
+      `Get ready for Round ${nextRound}.`,
+      "You've got this."
+    ];
+
+    this.drawCenterPanel({
+      title: `Round ${this.round} Complete`,
+      body,
+      footer: "Click Next Round to continue",
+      badge: `v${VERSION}`
+    });
+
+    const bw = 220;
+    const bh = 42;
+    const bx = this.w * 0.5 - bw * 0.5;
+    const by = this.h * 0.5 + 140;
+    this.drawButton("next-round", bx, by, bw, bh, "Next Round", true, () => {
+      this.advanceRound();
+    });
+  }
+
   private drawResult(): void {
     const outcome = this.state.kind === "result" ? this.state.outcome : "lose";
 
@@ -1588,7 +1691,13 @@ class NanobotDriftGame {
 
     const body: string[] = [];
     if (outcome === "win") {
-      body.push("You broadcast the universal reframe signal.", "The swarms hesitate… then drift away.");
+      body.push(
+        "You broadcast the universal reframe signal.",
+        "The swarms hesitate… then drift away.",
+        "",
+        `Round ${this.round} of ${TOTAL_ROUNDS} complete.`,
+        "All rounds cleared. Outstanding work."
+      );
     } else if (outcome === "lose") {
       body.push("The swarm finishes integrating your ship.", "Somewhere, a thousand tiny models celebrate.");
     } else {
